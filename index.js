@@ -17,10 +17,9 @@ try {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
-  console.log("✅ Firebase Admin SDK Initialized!");
 } catch (e) {
   if (e.code !== "app/duplicate-app") {
-    console.error("❌ Firebase Initialization Error:", e.message);
+    console.error(e.message);
     process.exit(1);
   }
 }
@@ -28,22 +27,33 @@ try {
 const app = express();
 const port = process.env.PORT || 3000;
 
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
+  .split(",")
+  .map(o => o.trim());
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 const uri = process.env.MONGO_URI;
-console.log(uri);
+
 const connectDB = async () => {
   try {
     await mongoose.connect(uri);
-    console.log("✅ MongoDB Connected!");
+    console.log("MongoDB connected");
   } catch (err) {
-    console.error(`❌ MongoDB Connection Error: ${err.message}`);
+    console.error(err.message);
     process.exit(1);
   }
 };
@@ -56,19 +66,21 @@ app.get("/", (req, res) => {
 
 const startServer = async () => {
   await connectDB();
-
   const server = http.createServer(app);
+
   const io = new SocketServer(server, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:5173",
+      origin: allowedOrigins,
       methods: ["GET", "POST"],
+      credentials: true,
     },
+    transports: ["websocket", "polling"],
   });
 
   commentSocketHandler(io);
 
   server.listen(port, () => {
-    console.log(`📡 Server listening on http://localhost:${port}`);
+    console.log(`Server running on port ${port}`);
   });
 };
 
