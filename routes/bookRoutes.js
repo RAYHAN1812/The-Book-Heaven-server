@@ -3,8 +3,8 @@ const router = express.Router();
 import Book from "../models/Book.js";
 import Comment from "../models/Comment.js";
 import verifyToken from "../middleware/verifyToken.js";
-import { emitNewComment } from "../socket/comments.js";
 
+// Get all books
 router.get("/books", async (req, res) => {
   try {
     const { sort, limit, userId } = req.query;
@@ -24,6 +24,7 @@ router.get("/books", async (req, res) => {
   }
 });
 
+// Get latest books
 router.get("/books/latest", async (req, res) => {
   try {
     const books = await Book.find().sort({ createdAt: -1 }).limit(6);
@@ -33,6 +34,7 @@ router.get("/books/latest", async (req, res) => {
   }
 });
 
+// Get single book by ID
 router.get("/books/:id", async (req, res) => {
   try {
     const book = await Book.findById(req.params.id);
@@ -43,6 +45,7 @@ router.get("/books/:id", async (req, res) => {
   }
 });
 
+// Get comments for a book
 router.get("/books/:id/comments", async (req, res) => {
   try {
     const comments = await Comment.find({ bookId: req.params.id }).sort({ createdAt: 1 });
@@ -52,6 +55,7 @@ router.get("/books/:id/comments", async (req, res) => {
   }
 });
 
+// Create a new book
 router.post("/books", verifyToken, async (req, res) => {
   const { title, author, description, imageUrl, category, price, rating, userName } = req.body;
   const userId = req.user.uid;
@@ -69,6 +73,7 @@ router.post("/books", verifyToken, async (req, res) => {
   }
 });
 
+// Update a book
 router.put("/books/:id", verifyToken, async (req, res) => {
   const bookId = req.params.id;
   const updateData = req.body;
@@ -94,6 +99,7 @@ router.put("/books/:id", verifyToken, async (req, res) => {
   }
 });
 
+// Delete a book and its comments
 router.delete("/books/:id", verifyToken, async (req, res) => {
   const bookId = req.params.id;
   const verifiedUserId = req.user.uid;
@@ -115,6 +121,7 @@ router.delete("/books/:id", verifyToken, async (req, res) => {
   }
 });
 
+// Add a comment to a book
 router.post("/books/:id/comments", verifyToken, async (req, res) => {
   const bookId = req.params.id;
   const { text, userEmail, userName, photoURL } = req.body;
@@ -140,7 +147,6 @@ router.post("/books/:id/comments", verifyToken, async (req, res) => {
     });
 
     const savedComment = await newComment.save();
-    emitNewComment(bookId, savedComment);
     res.status(201).json(savedComment);
   } catch (error) {
     res.status(400).json({ message: "Error adding comment", error: error.message });
